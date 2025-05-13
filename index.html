@@ -6,7 +6,7 @@
     <title>Anotador Simple</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
-        .toolbar button, .toolbar select { margin-right: 5px; }
+        .toolbar button { margin-right: 5px; }
         #editor { width: 100%; height: 200px; border: 1px solid #ccc; padding: 10px; overflow-y: auto; }
         .todo-input { margin-bottom: 10px; }
         .todo-table { width: 100%; border-collapse: collapse; }
@@ -18,7 +18,7 @@
         .calendar table { width: 100%; border-collapse: collapse; }
         .calendar th, .calendar td { width: 14.28%; height: 80px; vertical-align: top; border: 1px solid #ddd; padding: 5px; position: relative; }
         .calendar th { text-align: right; }
-        .calendar td { text-align: left; cursor: pointer; }
+        .calendar td { cursor: pointer; }
         .calendar .today { background-color: #fffae6; }
         .event { background-color: #d1e7fd; margin: 2px 0; padding: 2px 4px; border-radius: 4px; font-size: 0.8em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; position: relative; }
         .event .delete-btn { position: absolute; top: 0; right: 0; background: transparent; border: none; font-size: 0.8em; cursor: pointer; }
@@ -78,17 +78,16 @@
             return `${d}/${m}/${y}`;
         }
         function addTodo() {
-            const text = document.getElementById('todoText').value.trim(); if (!text) return;
+            const textInput = document.getElementById('todoText');
+            const text = textInput.value.trim(); if (!text) return;
             const tbody = document.querySelector('#todoTable tbody');
             const row = document.createElement('tr');
 
-            // Celdas
             const chkCell = document.createElement('td');
             const txtCell = document.createElement('td'); txtCell.textContent = text;
             const dateCell = document.createElement('td'); dateCell.textContent = formatDate(new Date());
             const actionCell = document.createElement('td');
 
-            // Checkbox y borrar
             const chk = document.createElement('input'); chk.type = 'checkbox';
             const btn = document.createElement('button'); btn.textContent = 'Borrar'; btn.disabled = true;
 
@@ -103,10 +102,10 @@
             actionCell.appendChild(btn);
             row.append(chkCell, txtCell, dateCell, actionCell);
             tbody.appendChild(row);
-            document.getElementById('todoText').value = '';
+            textInput.value = '';
         }
 
-        // Eventos de calendario
+        // Calendario con eventos
         let events = JSON.parse(localStorage.getItem('events') || '[]');
         const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
         let today = new Date(), currentMonth = today.getMonth(), currentYear = today.getFullYear();
@@ -116,15 +115,13 @@
 
         function addEvent(dateStr) {
             const title = prompt('Título del evento:'); if (!title) return;
-            // Pregunta multi-día con prompt de Si/No
-            const multi = prompt('Evento de varios días? (Si/No)').toLowerCase() === 'si';
+            const multi = confirm('Evento de varios días?');
             let endDate = dateStr;
             if (multi) {
                 const end = prompt('Fecha final (DD-MM-YYYY)');
                 if (end) {
-                    // convertir a YYYY-MM-DD interna
-                    const [dd,mm,yyyy] = end.split('-');
-                    endDate = `${yyyy}-${mm}-${dd}`;
+                    const [dd, mm, yyyy] = end.split('-');
+                    if (dd && mm && yyyy) endDate = `${yyyy}-${mm}-${dd}`;
                 }
             }
             events.push({ start: dateStr, end: endDate, title }); saveEvents(); showCalendar(currentMonth, currentYear);
@@ -142,7 +139,7 @@
                     div.title = e.title;
                     div.textContent = e.title;
                     const del = document.createElement('button'); del.textContent = '×'; del.className = 'delete-btn';
-                    del.onclick = (ev) => { ev.stopPropagation(); deleteEvent(i); };
+                    del.onclick = ev => { ev.stopPropagation(); deleteEvent(i); };
                     div.appendChild(del);
                     cell.appendChild(div);
                 }
@@ -159,7 +156,7 @@
                 const row = document.createElement('tr');
                 for (let j = 0; j < 7; j++) {
                     const cell = document.createElement('td');
-                    if (i === 0 && j < firstDay || date > daysInMonth) {
+                    if ((i === 0 && j < firstDay) || date > daysInMonth) {
                         cell.textContent = '';
                     } else {
                         const cellDate = new Date(year, month, date);
@@ -175,6 +172,7 @@
                 calBody.appendChild(row);
             }
         }
+
         function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } showCalendar(currentMonth, currentYear); }
         function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } showCalendar(currentMonth, currentYear); }
         showCalendar(currentMonth, currentYear);
