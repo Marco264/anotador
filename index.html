@@ -16,13 +16,16 @@
         .todo-table th { background-color: #f4f4f4; }
         .calendar { margin-top: 20px; }
         .calendar table { width: 100%; border-collapse: collapse; }
-        .calendar th, .calendar td { width: 14.28%; height: 80px; text-align: right; vertical-align: top; border: 1px solid #ddd; padding: 5px; }
+        .calendar th, .calendar td { width: 14.28%; height: 80px; vertical-align: top; border: 1px solid #ddd; padding: 5px; position: relative; }
+        .calendar th { text-align: right; }
+        .calendar td { text-align: left; cursor: pointer; }
         .calendar .today { background-color: #fffae6; }
+        .event { background-color: #d1e7fd; margin: 2px 0; padding: 2px 4px; border-radius: 4px; font-size: 0.8em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
     <h1>Anotador Simple</h1>
-    <!-- Editor de texto con opciones -->
+    <!-- Editor -->
     <div class="toolbar">
         <label>Color: <input type="color" id="colorPicker"></label>
         <button onclick="format('bold')"><b>B</b></button>
@@ -32,7 +35,7 @@
     </div>
     <div id="editor" contenteditable="true"></div>
 
-    <!-- To-Do List -->
+    <!-- To-Do -->
     <h2>Lista To-Do</h2>
     <div class="todo-input">
         <input type="text" id="todoText" placeholder="Nueva tarea">
@@ -45,7 +48,7 @@
         <tbody></tbody>
     </table>
 
-    <!-- Calendario básico -->
+    <!-- Calendario -->
     <div class="calendar">
         <h2>Calendario</h2>
         <div>
@@ -55,97 +58,77 @@
         </div>
         <table id="calendarTable">
             <thead>
-                <tr>
-                    <th>Dom</th><th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th>
-                </tr>
+                <tr><th>Dom</th><th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th></tr>
             </thead>
             <tbody></tbody>
         </table>
     </div>
 
     <script>
-        // Formato de texto
-        const editor = document.getElementById('editor');
-        document.getElementById('colorPicker').addEventListener('input', e => {
-            document.execCommand('foreColor', false, e.target.value);
-        });
+        // Texto
+        document.getElementById('colorPicker').addEventListener('input', e => document.execCommand('foreColor', false, e.target.value));
         function format(cmd) { document.execCommand(cmd, false, null); }
 
         // To-Do
-        function formatDate(date) {
-            const d = date.getDate().toString().padStart(2, '0');
-            const m = (date.getMonth()+1).toString().padStart(2, '0');
-            const y = date.getFullYear();
-            return `${d}/${m}/${y}`;
-        }
+        function formatDate(date) { const d = String(date.getDate()).padStart(2,'0'); const m = String(date.getMonth()+1).padStart(2,'0'); const y = date.getFullYear(); return `${d}/${m}/${y}`; }
         function addTodo() {
-            const text = document.getElementById('todoText').value.trim();
-            if (!text) return;
+            const text = document.getElementById('todoText').value.trim(); if(!text) return;
             const tbody = document.querySelector('#todoTable tbody');
             const row = document.createElement('tr');
-
-            const chkCell = document.createElement('td');
-            const txtCell = document.createElement('td');
-            const dateCell = document.createElement('td');
-            const actionCell = document.createElement('td');
-
-            const chk = document.createElement('input'); chk.type = 'checkbox';
-            const btn = document.createElement('button'); btn.textContent = 'Borrar';
-
-            dateCell.textContent = formatDate(new Date());
-            txtCell.textContent = text;
-            btn.disabled = true;
-
-            chk.addEventListener('change', () => {
-                const done = chk.checked;
-                txtCell.style.textDecoration = done ? 'line-through' : 'none';
-                btn.disabled = !done;
-            });
-            btn.addEventListener('click', () => {
-                tbody.removeChild(row);
-            });
-
-            chkCell.appendChild(chk);
-            actionCell.appendChild(btn);
-            row.append(chkCell, txtCell, dateCell, actionCell);
+            const chk = document.createElement('input'); chk.type='checkbox';
+            const btn = document.createElement('button'); btn.textContent='Borrar'; btn.disabled=true;
+            const txtCell = document.createElement('td'); txtCell.textContent=text;
+            const dateCell = document.createElement('td'); dateCell.textContent=formatDate(new Date());
+            chk.addEventListener('change',()=>{ txtCell.style.textDecoration=chk.checked?'line-through':'none'; btn.disabled=!chk.checked; });
+            btn.addEventListener('click',()=>row.remove());
+            row.append(chk.parentNode=Object.assign(document.createElement('td'),{appendChild:chk}), txtCell, dateCell, Object.assign(document.createElement('td'),{appendChild:btn}));
             tbody.appendChild(row);
-            document.getElementById('todoText').value = '';
+            document.getElementById('todoText').value='';
         }
 
-        // Calendario
-        let today = new Date();
-        let currentMonth = today.getMonth();
-        let currentYear = today.getFullYear();
-        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        const calendarBody = document.querySelector('#calendarTable tbody');
-        const monthYear = document.getElementById('monthYear');
-
-        function showCalendar(month, year) {
-            calendarBody.innerHTML = ''; monthYear.textContent = `${monthNames[month]} ${year}`;
-            const firstDay = (new Date(year, month)).getDay();
-            const daysInMonth = 32 - new Date(year, month, 32).getDate();
-            let date = 1;
-            for (let i = 0; i < 6; i++) {
-                const rowCal = document.createElement('tr');
-                for (let j = 0; j < 7; j++) {
-                    const cell = document.createElement('td');
-                    if (i === 0 && j < firstDay) {
-                        cell.textContent = '';
-                    } else if (date > daysInMonth) {
-                        cell.textContent = '';
-                    } else {
-                        cell.textContent = date;
-                        if (date === today.getDate() && year === today.getFullYear() && month === today.getMonth()) cell.classList.add('today');
+        // Eventos
+        let events = JSON.parse(localStorage.getItem('events')||'[]');
+        const monthNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        let today=new Date(), currentMonth=today.getMonth(), currentYear=today.getFullYear();
+        const calBody=document.querySelector('#calendarTable tbody'), monthYear=document.getElementById('monthYear');
+        function saveEvents(){ localStorage.setItem('events', JSON.stringify(events)); }
+        function addEvent(dateStr) {
+            const title=prompt('Título del evento'); if(!title) return;
+            const multi = confirm('¿Evento de varios días?');
+            let endDate = dateStr;
+            if(multi){ const end = prompt('Fecha final (YYYY-MM-DD)'); if(end) endDate=end; }
+            events.push({start:dateStr,end:endDate,title}); saveEvents(); showCalendar(currentMonth,currentYear);
+        }
+        function renderEvents(date,cell){
+            const dateISO = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+            events.filter(e=> e.start<=dateISO && e.end>=dateISO ).forEach(e=>{
+                const div=document.createElement('div'); div.className='event'; div.title=e.title; div.textContent=e.title;
+                cell.appendChild(div);
+            });
+        }
+        function showCalendar(month,year){ calBody.innerHTML=''; monthYear.textContent=`${monthNames[month]} ${year}`;
+            const firstDay=new Date(year,month,1).getDay(), daysInMonth=32-new Date(year,month,32).getDate();
+            let date=1;
+            for(let i=0;i<6;i++){ const row=document.createElement('tr');
+                for(let j=0;j<7;j++){ const cell=document.createElement('td');
+                    if(i===0&&j<firstDay||date>daysInMonth){ cell.textContent=''; }
+                    else{
+                        const cellDate=new Date(year,month,date);
+                        cell.textContent=date;
+                        if(date===today.getDate()&&year===today.getFullYear()&&month===today.getMonth()) cell.classList.add('today');
+                        renderEvents(cellDate,cell);
+                        const iso=`${year}-${String(month+1).padStart(2,'0')}-${String(date).padStart(2,'0')}`;
+                        cell.onclick=()=>addEvent(iso);
                         date++;
                     }
-                    rowCal.appendChild(cell);
+                    row.appendChild(cell);
                 }
-                calendarBody.appendChild(rowCal);
+                calBody.appendChild(row);
             }
         }
-        function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } showCalendar(currentMonth, currentYear); }
-        function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } showCalendar(currentMonth, currentYear); }
-        showCalendar(currentMonth, currentYear);
+        function prevMonth(){ currentMonth--; if(currentMonth<0){currentMonth=11;currentYear--;} showCalendar(currentMonth,currentYear);}        
+        function nextMonth(){ currentMonth++; if(currentMonth>11){currentMonth=0;currentYear++;} showCalendar(currentMonth,currentYear);}        
+        showCalendar(currentMonth,currentYear);
     </script>
 </body>
 </html>
