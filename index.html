@@ -20,7 +20,8 @@
         .calendar th { text-align: right; }
         .calendar td { text-align: left; cursor: pointer; }
         .calendar .today { background-color: #fffae6; }
-        .event { background-color: #d1e7fd; margin: 2px 0; padding: 2px 4px; border-radius: 4px; font-size: 0.8em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .event { background-color: #d1e7fd; margin: 2px 0; padding: 2px 4px; border-radius: 4px; font-size: 0.8em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; position: relative; }
+        .event .delete-btn { position: absolute; top: 0; right: 0; background: transparent; border: none; font-size: 0.8em; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -65,60 +66,108 @@
     </div>
 
     <script>
-        // Texto
+        // Editor de texto
         document.getElementById('colorPicker').addEventListener('input', e => document.execCommand('foreColor', false, e.target.value));
         function format(cmd) { document.execCommand(cmd, false, null); }
 
         // To-Do
-        function formatDate(date) { const d = String(date.getDate()).padStart(2,'0'); const m = String(date.getMonth()+1).padStart(2,'0'); const y = date.getFullYear(); return `${d}/${m}/${y}`; }
+        function formatDate(date) {
+            const d = String(date.getDate()).padStart(2,'0');
+            const m = String(date.getMonth()+1).padStart(2,'0');
+            const y = date.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
         function addTodo() {
-            const text = document.getElementById('todoText').value.trim(); if(!text) return;
+            const text = document.getElementById('todoText').value.trim(); if (!text) return;
             const tbody = document.querySelector('#todoTable tbody');
             const row = document.createElement('tr');
-            const chk = document.createElement('input'); chk.type='checkbox';
-            const btn = document.createElement('button'); btn.textContent='Borrar'; btn.disabled=true;
-            const txtCell = document.createElement('td'); txtCell.textContent=text;
-            const dateCell = document.createElement('td'); dateCell.textContent=formatDate(new Date());
-            chk.addEventListener('change',()=>{ txtCell.style.textDecoration=chk.checked?'line-through':'none'; btn.disabled=!chk.checked; });
-            btn.addEventListener('click',()=>row.remove());
-            row.append(chk.parentNode=Object.assign(document.createElement('td'),{appendChild:chk}), txtCell, dateCell, Object.assign(document.createElement('td'),{appendChild:btn}));
+
+            // Celdas
+            const chkCell = document.createElement('td');
+            const txtCell = document.createElement('td'); txtCell.textContent = text;
+            const dateCell = document.createElement('td'); dateCell.textContent = formatDate(new Date());
+            const actionCell = document.createElement('td');
+
+            // Checkbox y borrar
+            const chk = document.createElement('input'); chk.type = 'checkbox';
+            const btn = document.createElement('button'); btn.textContent = 'Borrar'; btn.disabled = true;
+
+            chk.addEventListener('change', () => {
+                const done = chk.checked;
+                txtCell.style.textDecoration = done ? 'line-through' : 'none';
+                btn.disabled = !done;
+            });
+            btn.addEventListener('click', () => row.remove());
+
+            chkCell.appendChild(chk);
+            actionCell.appendChild(btn);
+            row.append(chkCell, txtCell, dateCell, actionCell);
             tbody.appendChild(row);
-            document.getElementById('todoText').value='';
+            document.getElementById('todoText').value = '';
         }
 
-        // Eventos
-        let events = JSON.parse(localStorage.getItem('events')||'[]');
-        const monthNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        let today=new Date(), currentMonth=today.getMonth(), currentYear=today.getFullYear();
-        const calBody=document.querySelector('#calendarTable tbody'), monthYear=document.getElementById('monthYear');
-        function saveEvents(){ localStorage.setItem('events', JSON.stringify(events)); }
+        // Eventos de calendario
+        let events = JSON.parse(localStorage.getItem('events') || '[]');
+        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        let today = new Date(), currentMonth = today.getMonth(), currentYear = today.getFullYear();
+        const calBody = document.querySelector('#calendarTable tbody'), monthYear = document.getElementById('monthYear');
+
+        function saveEvents() { localStorage.setItem('events', JSON.stringify(events)); }
+
         function addEvent(dateStr) {
-            const title=prompt('Título del evento'); if(!title) return;
-            const multi = confirm('¿Evento de varios días?');
+            const title = prompt('Título del evento:'); if (!title) return;
+            // Pregunta multi-día con prompt de Si/No
+            const multi = prompt('Evento de varios días? (Si/No)').toLowerCase() === 'si';
             let endDate = dateStr;
-            if(multi){ const end = prompt('Fecha final (YYYY-MM-DD)'); if(end) endDate=end; }
-            events.push({start:dateStr,end:endDate,title}); saveEvents(); showCalendar(currentMonth,currentYear);
+            if (multi) {
+                const end = prompt('Fecha final (DD-MM-YYYY)');
+                if (end) {
+                    // convertir a YYYY-MM-DD interna
+                    const [dd,mm,yyyy] = end.split('-');
+                    endDate = `${yyyy}-${mm}-${dd}`;
+                }
+            }
+            events.push({ start: dateStr, end: endDate, title }); saveEvents(); showCalendar(currentMonth, currentYear);
         }
-        function renderEvents(date,cell){
-            const dateISO = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-            events.filter(e=> e.start<=dateISO && e.end>=dateISO ).forEach(e=>{
-                const div=document.createElement('div'); div.className='event'; div.title=e.title; div.textContent=e.title;
-                cell.appendChild(div);
+
+        function deleteEvent(index) {
+            events.splice(index, 1); saveEvents(); showCalendar(currentMonth, currentYear);
+        }
+
+        function renderEvents(date, cell) {
+            const iso = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+            events.forEach((e, i) => {
+                if (e.start <= iso && e.end >= iso) {
+                    const div = document.createElement('div'); div.className = 'event';
+                    div.title = e.title;
+                    div.textContent = e.title;
+                    const del = document.createElement('button'); del.textContent = '×'; del.className = 'delete-btn';
+                    del.onclick = (ev) => { ev.stopPropagation(); deleteEvent(i); };
+                    div.appendChild(del);
+                    cell.appendChild(div);
+                }
             });
         }
-        function showCalendar(month,year){ calBody.innerHTML=''; monthYear.textContent=`${monthNames[month]} ${year}`;
-            const firstDay=new Date(year,month,1).getDay(), daysInMonth=32-new Date(year,month,32).getDate();
-            let date=1;
-            for(let i=0;i<6;i++){ const row=document.createElement('tr');
-                for(let j=0;j<7;j++){ const cell=document.createElement('td');
-                    if(i===0&&j<firstDay||date>daysInMonth){ cell.textContent=''; }
-                    else{
-                        const cellDate=new Date(year,month,date);
-                        cell.textContent=date;
-                        if(date===today.getDate()&&year===today.getFullYear()&&month===today.getMonth()) cell.classList.add('today');
-                        renderEvents(cellDate,cell);
-                        const iso=`${year}-${String(month+1).padStart(2,'0')}-${String(date).padStart(2,'0')}`;
-                        cell.onclick=()=>addEvent(iso);
+
+        function showCalendar(month, year) {
+            calBody.innerHTML = '';
+            monthYear.textContent = `${monthNames[month]} ${year}`;
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = 32 - new Date(year, month, 32).getDate();
+            let date = 1;
+            for (let i = 0; i < 6; i++) {
+                const row = document.createElement('tr');
+                for (let j = 0; j < 7; j++) {
+                    const cell = document.createElement('td');
+                    if (i === 0 && j < firstDay || date > daysInMonth) {
+                        cell.textContent = '';
+                    } else {
+                        const cellDate = new Date(year, month, date);
+                        cell.textContent = date;
+                        if (date === today.getDate() && year === today.getFullYear() && month === today.getMonth()) cell.classList.add('today');
+                        renderEvents(cellDate, cell);
+                        const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(date).padStart(2,'0')}`;
+                        cell.onclick = () => addEvent(iso);
                         date++;
                     }
                     row.appendChild(cell);
@@ -126,9 +175,9 @@
                 calBody.appendChild(row);
             }
         }
-        function prevMonth(){ currentMonth--; if(currentMonth<0){currentMonth=11;currentYear--;} showCalendar(currentMonth,currentYear);}        
-        function nextMonth(){ currentMonth++; if(currentMonth>11){currentMonth=0;currentYear++;} showCalendar(currentMonth,currentYear);}        
-        showCalendar(currentMonth,currentYear);
+        function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } showCalendar(currentMonth, currentYear); }
+        function nextMonth() { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } showCalendar(currentMonth, currentYear); }
+        showCalendar(currentMonth, currentYear);
     </script>
 </body>
 </html>
