@@ -9,11 +9,13 @@
         .toolbar button, .toolbar select { margin-right: 5px; }
         #editor { width: 100%; height: 200px; border: 1px solid #ccc; padding: 10px; overflow-y: auto; }
         .todo-input { margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; }
+        .todo-table { width: 100%; border-collapse: collapse; }
+        .todo-table th, .todo-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        .todo-table th:nth-child(1), .todo-table td:nth-child(1) { width: 40px; }
+        .todo-table th:nth-child(4), .todo-table td:nth-child(4) { width: 80px; }
+        .todo-table th { background-color: #f4f4f4; }
         .calendar { margin-top: 20px; }
-        .calendar table { width: 100%; }
+        .calendar table { width: 100%; border-collapse: collapse; }
         .calendar th, .calendar td { width: 14.28%; height: 80px; text-align: right; vertical-align: top; border: 1px solid #ddd; padding: 5px; }
         .calendar .today { background-color: #fffae6; }
     </style>
@@ -36,9 +38,9 @@
         <input type="text" id="todoText" placeholder="Nueva tarea">
         <button onclick="addTodo()">Agregar</button>
     </div>
-    <table id="todoTable">
+    <table id="todoTable" class="todo-table">
         <thead>
-            <tr><th>Hecho</th><th>Tarea</th></tr>
+            <tr><th>Hecho</th><th>Tarea</th><th>Fecha</th><th>Acción</th></tr>
         </thead>
         <tbody></tbody>
     </table>
@@ -70,21 +72,42 @@
         function format(cmd) { document.execCommand(cmd, false, null); }
 
         // To-Do
+        function formatDate(date) {
+            const d = date.getDate().toString().padStart(2, '0');
+            const m = (date.getMonth()+1).toString().padStart(2, '0');
+            const y = date.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
         function addTodo() {
             const text = document.getElementById('todoText').value.trim();
             if (!text) return;
             const tbody = document.querySelector('#todoTable tbody');
             const row = document.createElement('tr');
+
             const chkCell = document.createElement('td');
             const txtCell = document.createElement('td');
+            const dateCell = document.createElement('td');
+            const actionCell = document.createElement('td');
+
             const chk = document.createElement('input'); chk.type = 'checkbox';
-            chk.addEventListener('change', () => {
-                txtCell.style.textDecoration = chk.checked ? 'line-through' : 'none';
-            });
-            chkCell.appendChild(chk);
+            const btn = document.createElement('button'); btn.textContent = 'Borrar';
+
+            dateCell.textContent = formatDate(new Date());
             txtCell.textContent = text;
-            row.appendChild(chkCell);
-            row.appendChild(txtCell);
+            btn.disabled = true;
+
+            chk.addEventListener('change', () => {
+                const done = chk.checked;
+                txtCell.style.textDecoration = done ? 'line-through' : 'none';
+                btn.disabled = !done;
+            });
+            btn.addEventListener('click', () => {
+                tbody.removeChild(row);
+            });
+
+            chkCell.appendChild(chk);
+            actionCell.appendChild(btn);
+            row.append(chkCell, txtCell, dateCell, actionCell);
             tbody.appendChild(row);
             document.getElementById('todoText').value = '';
         }
@@ -98,13 +121,12 @@
         const monthYear = document.getElementById('monthYear');
 
         function showCalendar(month, year) {
-            calendarBody.innerHTML = '';
-            monthYear.textContent = `${monthNames[month]} ${year}`;
+            calendarBody.innerHTML = ''; monthYear.textContent = `${monthNames[month]} ${year}`;
             const firstDay = (new Date(year, month)).getDay();
             const daysInMonth = 32 - new Date(year, month, 32).getDate();
             let date = 1;
             for (let i = 0; i < 6; i++) {
-                const row = document.createElement('tr');
+                const rowCal = document.createElement('tr');
                 for (let j = 0; j < 7; j++) {
                     const cell = document.createElement('td');
                     if (i === 0 && j < firstDay) {
@@ -113,14 +135,12 @@
                         cell.textContent = '';
                     } else {
                         cell.textContent = date;
-                        if (date === today.getDate() && year === today.getFullYear() && month === today.getMonth()) {
-                            cell.classList.add('today');
-                        }
+                        if (date === today.getDate() && year === today.getFullYear() && month === today.getMonth()) cell.classList.add('today');
                         date++;
                     }
-                    row.appendChild(cell);
+                    rowCal.appendChild(cell);
                 }
-                calendarBody.appendChild(row);
+                calendarBody.appendChild(rowCal);
             }
         }
         function prevMonth() { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } showCalendar(currentMonth, currentYear); }
